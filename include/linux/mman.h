@@ -156,6 +156,9 @@ calc_vm_flag_bits(unsigned long flags)
 	return _calc_vm_trans(flags, MAP_GROWSDOWN,  VM_GROWSDOWN ) |
 	       _calc_vm_trans(flags, MAP_LOCKED,     VM_LOCKED    ) |
 	       _calc_vm_trans(flags, MAP_SYNC,	     VM_SYNC      ) |
+#ifdef CONFIG_EXMEM
+	       _calc_vm_trans(flags, MAP_EXMEM,      VM_EXMEM     ) |
+#endif
 	       arch_calc_vm_flag_bits(flags);
 }
 

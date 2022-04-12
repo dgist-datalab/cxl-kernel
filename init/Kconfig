@@ -2048,6 +2048,11 @@ config PROFILING
 config TRACEPOINTS
 	bool
 
+config EXMEM
+	bool "ExMem Support"
+	help
+	  Introduce SMDK memory partition - ZONE_EXMEM, grouping, and interleaving CXL Memory
+
 endmenu		# General setup
 
 source "arch/Kconfig"

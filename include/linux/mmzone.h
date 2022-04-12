@@ -485,6 +485,9 @@ enum zone_type {
 	 * there can be false negatives).
 	 */
 	ZONE_MOVABLE,
+#ifdef CONFIG_EXMEM
+	ZONE_EXMEM,
+#endif
 #ifdef CONFIG_ZONE_DEVICE
 	ZONE_DEVICE,
 #endif
@@ -495,6 +498,29 @@ enum zone_type {
 #ifndef __GENERATING_BOUNDS_H
 
 #define ASYNC_AND_SYNC 2
+
+#ifdef CONFIG_EXMEM
+#define MAX_NR_SUBZONES	MAX_NUMNODES
+
+#define subzone_idx(subzone)	((subzone) - (subzone)->zone_dat->subzones)
+
+struct subzone {
+	struct zone *zone_dat;
+	unsigned long start_pfn;
+	unsigned long end_pfn;
+};
+
+/*
+ * This struct contains information about a subzone in a subzonelist.
+ */
+struct subzoneref {
+	struct subzone *subzone;
+	int subzone_idx;
+};
+
+int add_subzone(int nid, u64 start, u64 end);
+int remove_subzone(int nid, u64 start, u64 end);
+#endif /* CONFIG_EXMEM */
 
 struct zone {
 	/* Read-mostly fields */
@@ -615,6 +641,21 @@ struct zone {
 
 	/* free areas of different sizes */
 	struct free_area	free_area[MAX_ORDER];
+
+#ifdef CONFIG_EXMEM
+	struct free_area	free_area_subzone[MAX_NR_SUBZONES][MAX_ORDER];
+	struct subzone		subzones[MAX_NR_SUBZONES];
+	nodemask_t			subzone_mask; // FIXME
+
+	/*
+	 * subzonelist contains references to all subzones in ExMem zone.
+	 * subzonelist SHOULD BE NULL-terminated.
+	 */
+	struct subzoneref	subzonelist[MAX_NR_SUBZONES + 1];
+	unsigned int		nr_subzones;
+
+	unsigned int		cur_subzone_idx;
+#endif
 
 	/* zone flags, see below */
 	unsigned long		flags;
@@ -996,6 +1037,13 @@ static inline bool zone_is_zone_device(struct zone *zone)
 static inline bool zone_is_zone_device(struct zone *zone)
 {
 	return false;
+}
+#endif
+
+#ifdef CONFIG_EXMEM
+static inline bool zone_is_zone_exmem(struct zone *zone)
+{
+	return unlikely(zone_idx(zone) == ZONE_EXMEM);
 }
 #endif
 

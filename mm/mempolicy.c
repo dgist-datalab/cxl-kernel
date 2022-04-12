@@ -2166,6 +2166,12 @@ struct page *alloc_pages_vma(gfp_t gfp, int order, struct vm_area_struct *vma,
 
 	pol = get_vma_policy(vma, addr);
 
+#ifdef CONFIG_EXMEM
+	if ((vma && (vma->vm_flags & VM_EXMEM)) ||
+			(pol->flags & MPOL_F_ZONE_EXMEM))
+		gfp |= GFP_EXMEM;
+#endif
+
 	if (pol->mode == MPOL_INTERLEAVE) {
 		unsigned nid;
 

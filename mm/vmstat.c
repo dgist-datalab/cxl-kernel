@@ -1455,11 +1455,21 @@ static void frag_show_print(struct seq_file *m, pg_data_t *pgdat,
 
 	seq_printf(m, "Node %d, zone %8s ", pgdat->node_id, zone->name);
 	for (order = 0; order < MAX_ORDER; ++order)
+#ifdef CONFIG_EXMEM
+		if (unlikely(zone_idx(zone) == ZONE_EXMEM)) {
+			unsigned long sum = 0, i;
+			for (i = 0; i < MAX_NR_SUBZONES; i++)
+				sum += zone->free_area_subzone[i][order].nr_free;
+			seq_printf(m, "%6lu ", sum);
+		} else
+			seq_printf(m, "%6lu ", zone->free_area[order].nr_free);
+#else
 		/*
 		 * Access to nr_free is lockless as nr_free is used only for
 		 * printing purposes. Use data_race to avoid KCSAN warning.
 		 */
 		seq_printf(m, "%6lu ", data_race(zone->free_area[order].nr_free));
+#endif
 	seq_putc(m, '\n');
 }
 
@@ -1489,6 +1499,42 @@ static void pagetypeinfo_showfree_print(struct seq_file *m,
 			struct list_head *curr;
 			bool overflow = false;
 
+#ifdef CONFIG_EXMEM
+			if (unlikely(zone_idx(zone) == ZONE_EXMEM)) {
+				unsigned int i, subzone_idx;
+				for (i = 0; i < zone->nr_subzones; i++) {
+					subzone_idx = zone->subzonelist[i].subzone_idx;
+					area = &(zone->free_area_subzone[subzone_idx][order]);
+					list_for_each(curr, &area->free_list[mtype]) {
+						if (++freecount >= 100000) {
+							overflow = true;
+							break;
+						}
+					}
+
+					if (overflow)
+						break;
+				}
+			} else {
+				area = &(zone->free_area[order]);
+
+				list_for_each(curr, &area->free_list[mtype]) {
+					/*
+					 * Cap the free_list iteration because it might
+					 * be really large and we are under a spinlock
+					 * so a long time spent here could trigger a
+					 * hard lockup detector. Anyway this is a
+					 * debugging tool so knowing there is a handful
+					 * of pages of this order should be more than
+					 * sufficient.
+					 */
+					if (++freecount >= 100000) {
+						overflow = true;
+						break;
+					}
+				}
+			}
+#else
 			area = &(zone->free_area[order]);
 
 			list_for_each(curr, &area->free_list[mtype]) {
@@ -1506,6 +1552,7 @@ static void pagetypeinfo_showfree_print(struct seq_file *m,
 					break;
 				}
 			}
+#endif
 			seq_printf(m, "%s%6lu ", overflow ? ">" : "", freecount);
 			spin_unlock_irq(&zone->lock);
 			cond_resched();

@@ -31,6 +31,24 @@ static struct numa_meminfo numa_reserved_meminfo __initdata_or_meminfo;
 static int numa_distance_cnt;
 static u8 *numa_distance;
 
+#ifdef CONFIG_EXMEM
+void numa_get_reserved_meminfo(struct numa_meminfo *mi)
+{
+	int i;
+
+	if (!mi)
+		return;
+
+	mi->nr_blks = numa_reserved_meminfo.nr_blks;
+	for (i = 0; i < numa_reserved_meminfo.nr_blks; i++) {
+		mi->blk[i].start = numa_reserved_meminfo.blk[i].start;
+		mi->blk[i].end= numa_reserved_meminfo.blk[i].end;
+		mi->blk[i].nid = numa_reserved_meminfo.blk[i].nid;
+	}
+}
+EXPORT_SYMBOL_GPL(numa_get_reserved_meminfo);
+#endif
+
 static __init int numa_setup(char *opt)
 {
 	if (!opt)

@@ -29,6 +29,10 @@ enum {
 	MMOP_ONLINE_KERNEL,
 	/* Online the memory to ZONE_MOVABLE. */
 	MMOP_ONLINE_MOVABLE,
+#ifdef CONFIG_EXMEM
+	/* Online the memory to ZONE_EXMEM. */
+	MMOP_ONLINE_EXMEM,
+#endif
 };
 
 /* Flags for add_memory() and friends to specify memory hotplug details. */
@@ -56,6 +60,10 @@ typedef int __bitwise mhp_t;
  * implies the node id (nid).
  */
 #define MHP_NID_IS_MGID		((__force mhp_t)BIT(2))
+
+#ifdef CONFIG_EXMEM
+#define MHP_EXMEM		((__force mhp_t)BIT(3))
+#endif
 
 /*
  * Extended parameters for memory hotplug:

@@ -57,8 +57,14 @@ struct vm_area_struct;
 #define ___GFP_SKIP_KASAN_POISON	0x1000000u
 #ifdef CONFIG_LOCKDEP
 #define ___GFP_NOLOCKDEP	0x2000000u
+#ifdef CONFIG_EXMEM
+#define ___GFP_EXMEM		0x4000000u
+#endif
 #else
 #define ___GFP_NOLOCKDEP	0
+#ifdef CONFIG_EXMEM
+#define ___GFP_EXMEM		0x2000000u
+#endif
 #endif
 /* If the above are modified, __GFP_BITS_SHIFT may need updating */
 
@@ -74,6 +80,9 @@ struct vm_area_struct;
 #define __GFP_DMA32	((__force gfp_t)___GFP_DMA32)
 #define __GFP_MOVABLE	((__force gfp_t)___GFP_MOVABLE)  /* ZONE_MOVABLE allowed */
 #define GFP_ZONEMASK	(__GFP_DMA|__GFP_HIGHMEM|__GFP_DMA32|__GFP_MOVABLE)
+#ifdef CONFIG_EXMEM
+#define __GFP_EXMEM	((__force gfp_t)___GFP_EXMEM)
+#endif
 
 /**
  * DOC: Page mobility and placement hints
@@ -249,7 +258,11 @@ struct vm_area_struct;
 #define __GFP_NOLOCKDEP ((__force gfp_t)___GFP_NOLOCKDEP)
 
 /* Room for N __GFP_FOO bits */
+#ifdef CONFIG_EXMEM
+#define __GFP_BITS_SHIFT (26 + IS_ENABLED(CONFIG_LOCKDEP))
+#else
 #define __GFP_BITS_SHIFT (25 + IS_ENABLED(CONFIG_LOCKDEP))
+#endif
 #define __GFP_BITS_MASK ((__force gfp_t)((1 << __GFP_BITS_SHIFT) - 1))
 
 /**
@@ -337,6 +350,9 @@ struct vm_area_struct;
 #define GFP_TRANSHUGE_LIGHT	((GFP_HIGHUSER_MOVABLE | __GFP_COMP | \
 			 __GFP_NOMEMALLOC | __GFP_NOWARN) & ~__GFP_RECLAIM)
 #define GFP_TRANSHUGE	(GFP_TRANSHUGE_LIGHT | __GFP_DIRECT_RECLAIM)
+#ifdef CONFIG_EXMEM
+#define GFP_EXMEM		(GFP_HIGHUSER | __GFP_EXMEM)
+#endif
 
 /* Convert GFP flags to their corresponding migrate type */
 #define GFP_MOVABLE_MASK (__GFP_RECLAIMABLE|__GFP_MOVABLE)
@@ -439,6 +455,8 @@ static inline bool gfpflags_normal_context(const gfp_t gfp_flags)
 #if defined(CONFIG_ZONE_DEVICE) && (MAX_NR_ZONES-1) <= 4
 /* ZONE_DEVICE is not a valid GFP zone specifier */
 #define GFP_ZONES_SHIFT 2
+#elif defined(CONFIG_EXMEM)
+#define GFP_ZONES_SHIFT 2
 #else
 #define GFP_ZONES_SHIFT ZONES_SHIFT
 #endif
@@ -479,6 +497,11 @@ static inline enum zone_type gfp_zone(gfp_t flags)
 {
 	enum zone_type z;
 	int bit = (__force int) (flags & GFP_ZONEMASK);
+
+#ifdef CONFIG_EXMEM
+	if (flags & __GFP_EXMEM)
+		return ZONE_EXMEM;
+#endif
 
 	z = (GFP_ZONE_TABLE >> (bit * GFP_ZONES_SHIFT)) &
 					 ((1 << GFP_ZONES_SHIFT) - 1);

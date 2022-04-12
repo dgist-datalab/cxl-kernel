@@ -978,6 +978,11 @@ struct zone *zone_for_pfn_range(int online_type, int nid,
 		struct memory_group *group, unsigned long start_pfn,
 		unsigned long nr_pages)
 {
+#ifdef CONFIG_EXMEM
+	if (online_type == MMOP_ONLINE_EXMEM)
+		return &NODE_DATA(nid)->node_zones[ZONE_EXMEM];
+#endif
+
 	if (online_type == MMOP_ONLINE_KERNEL)
 		return default_kernel_zone_for_pfn(nid, start_pfn, nr_pages);
 
@@ -1291,6 +1296,13 @@ static int check_hotplug_memory_range(u64 start, u64 size)
 static int online_memory_block(struct memory_block *mem, void *arg)
 {
 	mem->online_type = mhp_default_online_type;
+#ifdef CONFIG_EXMEM
+	if (arg) {
+		int tmp = (int)(*(int *)arg);
+		if (tmp == MHP_EXMEM)
+			mem->online_type = MMOP_ONLINE_EXMEM;
+	}
+#endif
 	return device_online(&mem->dev);
 }
 
@@ -1440,8 +1452,14 @@ int __ref add_memory_resource(int nid, struct resource *res, mhp_t mhp_flags)
 		merge_system_ram_resource(res);
 
 	/* online pages if requested */
-	if (mhp_default_online_type != MMOP_OFFLINE)
+	if (mhp_default_online_type != MMOP_OFFLINE) {
+#ifdef CONFIG_EXMEM
+		int tmp = (mhp_flags & MHP_EXMEM);
+		walk_memory_blocks(start, size, &tmp, online_memory_block);
+#else
 		walk_memory_blocks(start, size, NULL, online_memory_block);
+#endif
+	}
 
 	return ret;
 error:
