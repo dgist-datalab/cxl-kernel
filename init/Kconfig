@@ -2050,6 +2050,7 @@ config TRACEPOINTS
 
 config EXMEM
 	bool "ExMem Support"
+	default y
 	help
 	  Introduce SMDK memory partition - ZONE_EXMEM, grouping, and interleaving CXL Memory
 
