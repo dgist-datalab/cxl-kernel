@@ -1052,7 +1052,15 @@ void __init setup_arch(char **cmdline_p)
 	 */
 	sev_setup_arch();
 
+	pr_info("%s:%d\n", __func__, __LINE__);
+#ifdef CONFIG_EFI_FAKE_MEMMAP
+	pr_info("CONFIG_EFI_FAKE_MEMMAP is defined\n");
+#else
+	pr_info("CONFIG_EFI_FAKE_MEMMAP is undefined\n");
+#endif
 	efi_fake_memmap();
+	pr_info("%s:%d\n", __func__, __LINE__);
+
 	efi_find_mirror();
 	efi_esrt_init();
 	efi_mokvar_table_init();

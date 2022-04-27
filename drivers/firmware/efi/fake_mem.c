@@ -68,20 +68,27 @@ void __init efi_fake_memmap(void)
 {
 	int i;
 
+	pr_info("%s:%d\n", __func__, __LINE__);
 	if (!efi_enabled(EFI_MEMMAP) || !nr_fake_mem)
 		return;
 
+	pr_info("%s:%d\n", __func__, __LINE__);
 	for (i = 0; i < nr_fake_mem; i++)
 		efi_fake_range(&efi_fake_mems[i]);
 
 	/* print new EFI memmap */
+	pr_info("%s:%d\n", __func__, __LINE__);
 	efi_print_memmap();
+	pr_info("%s:%d\n", __func__, __LINE__);
 }
 
 static int __init setup_fake_mem(char *p)
 {
 	u64 start = 0, mem_size = 0, attribute = 0;
 	int i;
+
+	pr_info("%s:%d\n", __func__, __LINE__);
+	pr_info("nr_fake_mem: %d\n", nr_fake_mem);
 
 	if (!p)
 		return -EINVAL;
@@ -110,13 +117,16 @@ static int __init setup_fake_mem(char *p)
 			p++;
 	}
 
+	pr_info("%s:%d\n", __func__, __LINE__);
 	sort(efi_fake_mems, nr_fake_mem, sizeof(struct efi_mem_range),
 	     cmp_fake_mem, NULL);
+	pr_info("%s:%d\n", __func__, __LINE__);
 
 	for (i = 0; i < nr_fake_mem; i++)
 		pr_info("efi_fake_mem: add attr=0x%016llx to [mem 0x%016llx-0x%016llx]",
 			efi_fake_mems[i].attribute, efi_fake_mems[i].range.start,
 			efi_fake_mems[i].range.end);
+	pr_info("%s:%d\n", __func__, __LINE__);
 
 	return *p == '\0' ? 0 : -EINVAL;
 }
