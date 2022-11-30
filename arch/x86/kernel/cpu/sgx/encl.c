@@ -667,6 +667,7 @@ static int sgx_encl_test_and_clear_young_cb(pte_t *ptep, unsigned long addr,
 	ret = pte_young(*ptep);
 	if (ret) {
 		pte = pte_mkold(*ptep);
+		pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 		set_pte_at((struct mm_struct *)data, addr, ptep, pte);
 	}
 

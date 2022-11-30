@@ -134,6 +134,7 @@ static int map_tboot_page(unsigned long vaddr, unsigned long pfn,
 	pte = pte_alloc_map(&tboot_mm, pmd, vaddr);
 	if (!pte)
 		return -1;
+	pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 	set_pte_at(&tboot_mm, vaddr, pte, pfn_pte(pfn, prot));
 	pte_unmap(pte);
 

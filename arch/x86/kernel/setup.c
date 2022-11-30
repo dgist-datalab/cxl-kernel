@@ -1058,6 +1058,8 @@ void __init setup_arch(char **cmdline_p)
 #else
 	pr_info("CONFIG_EFI_FAKE_MEMMAP is undefined\n");
 #endif
+	pr_info("NR_NODE_MEMBLKS: %d, MAX_NUMNODES: %d\n", NR_NODE_MEMBLKS, MAX_NUMNODES);
+
 	efi_fake_memmap();
 	pr_info("%s:%d\n", __func__, __LINE__);
 

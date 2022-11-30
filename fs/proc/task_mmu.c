@@ -1105,6 +1105,7 @@ static inline void clear_soft_dirty(struct vm_area_struct *vma,
 		ptep_modify_prot_commit(vma, addr, pte, old_pte, ptent);
 	} else if (is_swap_pte(ptent)) {
 		ptent = pte_swp_clear_soft_dirty(ptent);
+		pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 		set_pte_at(vma->vm_mm, addr, pte, ptent);
 	}
 }

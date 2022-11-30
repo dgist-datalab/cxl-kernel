@@ -335,6 +335,7 @@ map_ldt_struct(struct mm_struct *mm, struct ldt_struct *ldt, int slot)
 		/* Filter out unsuppored __PAGE_KERNEL* bits: */
 		pgprot_val(pte_prot) &= __supported_pte_mask;
 		pte = pfn_pte(pfn, pte_prot);
+		pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 		set_pte_at(mm, va, ptep, pte);
 		pte_unmap_unlock(ptep, ptl);
 	}

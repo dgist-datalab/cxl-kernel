@@ -2,9 +2,11 @@
 #ifndef _ASM_X86_PGTABLE_H
 #define _ASM_X86_PGTABLE_H
 
+//#include <linux/sched.h> /* minjae */
 #include <linux/mem_encrypt.h>
 #include <asm/page.h>
 #include <asm/pgtable_types.h>
+//#include <asm/current.h> /* minjae */
 
 /*
  * Macro to mark a page protection value as UC-
@@ -1008,6 +1010,14 @@ static inline pud_t native_local_pudp_get_and_clear(pud_t *pudp)
 static inline void set_pte_at(struct mm_struct *mm, unsigned long addr,
 			      pte_t *ptep, pte_t pte)
 {
+	/* minjae */
+#ifdef full_map_print
+	pr_info("(set_pte_at) pfn part of entry: %llx, VPN: %lx\n", 
+			(((u64)pte.pte & (~((1ul<<PAGE_SHIFT)-1))) & ((1ul<<63)-1)) >> PAGE_SHIFT,
+			addr >> PAGE_SHIFT
+			);
+#endif
+
 	page_table_check_pte_set(mm, addr, ptep, pte);
 	set_pte(ptep, pte);
 }

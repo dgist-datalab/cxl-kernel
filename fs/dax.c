@@ -864,6 +864,7 @@ unlock_pmd:
 			pte = ptep_clear_flush(vma, address, ptep);
 			pte = pte_wrprotect(pte);
 			pte = pte_mkclean(pte);
+			pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 			set_pte_at(vma->vm_mm, address, ptep, pte);
 unlock_pte:
 			pte_unmap_unlock(ptep, ptl);

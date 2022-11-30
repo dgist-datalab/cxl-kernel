@@ -42,6 +42,7 @@ int arch_gnttab_map_shared(unsigned long *frames, unsigned long nr_gframes,
 	addr = (unsigned long)shared;
 
 	for (i = 0; i < nr_gframes; i++) {
+		pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 		set_pte_at(&init_mm, addr, gnttab_shared_vm_area.ptes[i],
 			   mfn_pte(frames[i], PAGE_KERNEL));
 		addr += PAGE_SIZE;
@@ -64,6 +65,7 @@ int arch_gnttab_map_status(uint64_t *frames, unsigned long nr_gframes,
 	addr = (unsigned long)shared;
 
 	for (i = 0; i < nr_gframes; i++) {
+		pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 		set_pte_at(&init_mm, addr, gnttab_status_vm_area.ptes[i],
 			   mfn_pte(frames[i], PAGE_KERNEL));
 		addr += PAGE_SIZE;
@@ -86,6 +88,7 @@ void arch_gnttab_unmap(void *shared, unsigned long nr_gframes)
 	addr = (unsigned long)shared;
 
 	for (i = 0; i < nr_gframes; i++) {
+		pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 		set_pte_at(&init_mm, addr, ptes[i], __pte(0));
 		addr += PAGE_SIZE;
 	}

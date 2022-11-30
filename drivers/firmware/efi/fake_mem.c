@@ -69,6 +69,8 @@ void __init efi_fake_memmap(void)
 	int i;
 
 	pr_info("%s:%d\n", __func__, __LINE__);
+	pr_info("nr_fake_mem: %d\n", nr_fake_mem);
+	pr_info("EFI_MEMMAP: %d, efi_enabled(EFI_MEMMAP): %d\n", EFI_MEMMAP, efi_enabled(EFI_MEMMAP));
 	if (!efi_enabled(EFI_MEMMAP) || !nr_fake_mem)
 		return;
 

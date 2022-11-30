@@ -3362,6 +3362,9 @@ again:
 		if (vmf->address == addr)
 			ret = VM_FAULT_NOPAGE;
 
+#ifdef full_map_print
+		pr_info("(filemap_map_pages) call do_set_pte!\n");
+#endif
 		do_set_pte(vmf, page, addr);
 		/* no need to invalidate: a not-present page won't be cached */
 		update_mmu_cache(vma, addr, vmf->pte);

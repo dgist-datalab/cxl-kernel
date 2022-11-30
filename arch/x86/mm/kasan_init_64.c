@@ -66,6 +66,7 @@ static void __init kasan_populate_pmd(pmd_t *pmd, unsigned long addr,
 
 		p = early_alloc(PAGE_SIZE, nid, true);
 		entry = pfn_pte(PFN_DOWN(__pa(p)), PAGE_KERNEL);
+		pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 		set_pte_at(&init_mm, addr, pte, entry);
 	} while (pte++, addr += PAGE_SIZE, addr != end);
 }

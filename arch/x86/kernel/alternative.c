@@ -1007,6 +1007,7 @@ static void *__text_poke(void *addr, const void *opcode, size_t len)
 	local_irq_save(flags);
 
 	pte = mk_pte(pages[0], pgprot);
+	//pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 	set_pte_at(poking_mm, poking_addr, ptep, pte);
 
 	if (cross_page_boundary) {
