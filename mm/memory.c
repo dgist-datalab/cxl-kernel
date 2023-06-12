@@ -99,7 +99,6 @@
 #include "../drivers/misc/proc_fs.h"
 
 #define MJ_USER_PFN_PRINT
-//#define _MJ_WRITE
 #ifdef MJ_USER_PFN_PRINT
 
 #define VPMAP_ELEM_LIMIT	(32 * (1024*1024))
@@ -111,8 +110,9 @@ static void __user *userspace_stack_buffer(const void *d, size_t len)
 	return copy_to_user(p, d, len) ? NULL : p; // boom in python
 }
 
-static int target_pid;
-module_param(target_pid, int, 0644);
+int target_count;
+int target_pid[16];
+module_param_array(target_pid, int, &target_count, 0644);
 #endif
 
 extern struct vpmap_elem *vpmap_buf;
@@ -767,7 +767,6 @@ static void restore_exclusive_pte(struct vm_area_struct *vma,
 		 */
 		WARN_ON_ONCE(!PageAnon(page));
 
-	pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 	set_pte_at(vma->vm_mm, address, ptep, pte);
 
 	if (vma->vm_flags & VM_LOCKED)
@@ -847,7 +846,6 @@ copy_nonpresent_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 				pte = pte_swp_mksoft_dirty(pte);
 			if (pte_swp_uffd_wp(*src_pte))
 				pte = pte_swp_mkuffd_wp(pte);
-			pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 			set_pte_at(src_mm, addr, src_pte, pte);
 		}
 	} else if (is_device_private_entry(entry)) {
@@ -896,7 +894,6 @@ copy_nonpresent_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	}
 	if (!userfaultfd_wp(dst_vma))
 		pte = pte_swp_clear_uffd_wp(pte);
-	pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 	set_pte_at(dst_mm, addr, dst_pte, pte);
 	return 0;
 }
@@ -965,7 +962,6 @@ copy_present_page(struct vm_area_struct *dst_vma, struct vm_area_struct *src_vma
 	if (userfaultfd_pte_wp(dst_vma, *src_pte))
 		/* Uffd-wp needs to be delivered to dest pte as well */
 		pte = pte_wrprotect(pte_mkuffd_wp(pte));
-	pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 	set_pte_at(dst_vma->vm_mm, addr, dst_pte, pte);
 	return 0;
 }
@@ -1822,7 +1818,6 @@ static int insert_page_into_pte_locked(struct mm_struct *mm, pte_t *pte,
 	get_page(page);
 	inc_mm_counter_fast(mm, mm_counter_file(page));
 	page_add_file_rmap(page, false);
-	pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 	set_pte_at(mm, addr, pte, mk_pte(page, prot));
 	return 0;
 }
@@ -2147,23 +2142,23 @@ static vm_fault_t insert_pfn(struct vm_area_struct *vma, unsigned long addr,
 	}
 
 #ifdef MJ_USER_PFN_PRINT
-
-if (target_pid == current->pid) {
-		//len = snprintf((char*)mj_msg, 64, "{%d i %lx %llx}\n", current->pid, addr >> PAGE_SHIFT, 
-				//(((u64)entry.pte & (~((1ul<<PAGE_SHIFT)-1))) & ((1ul<<63)-1)) >> PAGE_SHIFT);
-		ktime_get_ts64(&ts);
-		if (vpmap_elem_cnt < VPMAP_ELEM_LIMIT) {
-			vpmap_buf[vpmap_elem_cnt].ftype = 'i';
-			vpmap_buf[vpmap_elem_cnt].pid = target_pid;
-			vpmap_buf[vpmap_elem_cnt].vpn = addr >> PAGE_SHIFT;
-			vpmap_buf[vpmap_elem_cnt].pfn = (((u64)entry.pte & (~((1ul<<PAGE_SHIFT)-1))) & ((1ul<<63)-1)) >> PAGE_SHIFT;
-			vpmap_buf[vpmap_elem_cnt].tv_sec = ts.tv_sec;
-			vpmap_buf[vpmap_elem_cnt].tv_nsec = ts.tv_nsec;
-			vpmap_elem_cnt++;
-			//vpmap_write((current->vpmap_seq), mj_msg, len, 0);
-			//pr_info("in memory.c:insert_pfn(), call vpmap_write()\n");
-		}
-	}
+    pid_t curr_pid = current->pid;
+    int i;
+    for (i=0; i<target_count; i++) {
+        if (curr_pid == target_pid[i]) {
+            ktime_get_ts64(&ts);
+            if (vpmap_elem_cnt < VPMAP_ELEM_LIMIT) {
+                vpmap_buf[vpmap_elem_cnt].ftype = 'i'; 
+                vpmap_buf[vpmap_elem_cnt].pid = target_pid[0];
+                vpmap_buf[vpmap_elem_cnt].vpn = addr >> PAGE_SHIFT;
+                vpmap_buf[vpmap_elem_cnt].pfn = (((u64)entry.pte & (~((1ul<<PAGE_SHIFT)-1))) & ((1ul<<63)-1)) >> PAGE_SHIFT;
+                vpmap_buf[vpmap_elem_cnt].tv_sec = ts.tv_sec;
+                vpmap_buf[vpmap_elem_cnt].tv_nsec = ts.tv_nsec;
+                vpmap_elem_cnt++;
+            }
+            break;
+        }
+    }  
 #endif
 	set_pte_at(mm, addr, pte, entry);
 	update_mmu_cache(vma, addr, pte); /* XXX: why not for insert_page? */
@@ -2384,7 +2379,6 @@ static int remap_pte_range(struct mm_struct *mm, pmd_t *pmd,
 			err = -EACCES;
 			break;
 		}
-		pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 		set_pte_at(mm, addr, pte, pte_mkspecial(pfn_pte(pfn, prot)));
 		pfn++;
 	} while (pte++, addr += PAGE_SIZE, addr != end);
@@ -3751,7 +3745,6 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
 		do_page_add_anon_rmap(page, vma, vmf->address, exclusive);
 	}
 
-	pr_info("[%d] %s:%d\n", current->pid, __func__, __LINE__);
 	set_pte_at(vma->vm_mm, vmf->address, vmf->pte, pte);
 	arch_do_swap_page(vma->vm_mm, vma, vmf->address, pte, vmf->orig_pte);
 
@@ -3907,32 +3900,25 @@ static vm_fault_t do_anonymous_page(struct vm_fault *vmf)
 setpte:
 #ifdef MJ_USER_PFN_PRINT
 	struct timespec64 ts;
-	if (target_pid == current->pid) {
-		//len = snprintf((char*)mj_msg, 64, "{%d a %lx %llx}\n", current->pid, vmf->address >> PAGE_SHIFT, 
-				//(((u64)entry.pte & (~((1ul<<PAGE_SHIFT)-1))) & ((1ul<<63)-1)) >> PAGE_SHIFT);
-		ktime_get_ts64(&ts);
-#if 0
-		pr_info("%d a %lx %llx %llx %llx\n", 
-				current->pid, vmf->address, 
-				(((u64)entry.pte)),
-				(((u64)entry.pte & (~((1ul<<PAGE_SHIFT)-1)))),
-				(((u64)entry.pte & (~((1ul<<PAGE_SHIFT)-1))) & ((1ul<<63)-1)));
-#endif
-		if (vpmap_elem_cnt < VPMAP_ELEM_LIMIT) {
-			vpmap_buf[vpmap_elem_cnt].ftype = 'a';
-			vpmap_buf[vpmap_elem_cnt].pid = target_pid;
-			vpmap_buf[vpmap_elem_cnt].vpn = vmf->address >> PAGE_SHIFT;
-			vpmap_buf[vpmap_elem_cnt].pfn = (((u64)entry.pte & (~((1ul<<PAGE_SHIFT)-1))) & ((1ul<<63)-1)) >> PAGE_SHIFT;
-			vpmap_buf[vpmap_elem_cnt].tv_sec = ts.tv_sec;
-			vpmap_buf[vpmap_elem_cnt].tv_nsec = ts.tv_nsec;
-			vpmap_elem_cnt++;
+	pid_t curr_pid = current->pid;
+	int i;
+	for (i=0; i<target_count; i++) {
+		if (curr_pid == target_pid[i]) {
+			ktime_get_ts64(&ts);
+			if (vpmap_elem_cnt < VPMAP_ELEM_LIMIT) {
+				vpmap_buf[vpmap_elem_cnt].ftype = 'a';
+				vpmap_buf[vpmap_elem_cnt].pid = target_pid[0];
+				vpmap_buf[vpmap_elem_cnt].vpn = vmf->address >> PAGE_SHIFT;
+				vpmap_buf[vpmap_elem_cnt].pfn = (((u64)entry.pte & (~((1ul<<PAGE_SHIFT)-1))) & ((1ul<<63)-1)) >> PAGE_SHIFT;
+				vpmap_buf[vpmap_elem_cnt].tv_sec = ts.tv_sec;
+				vpmap_buf[vpmap_elem_cnt].tv_nsec = ts.tv_nsec;
+				vpmap_elem_cnt++;
+			}
+			break;
 		}
-		// TODO: handle no space in vpmap 
-
-		//pr_info("in memory.c:do_anonymous_page(), call vpmap_write()\n");
-		//vpmap_write((current->vpmap_seq), mj_msg, len, 0);
 	}
-#endif
+		// TODO: handle no space in vpmap 
+#endif // ! MJ_USER_PFN_PRINT
 	set_pte_at(vma->vm_mm, vmf->address, vmf->pte, entry);
 
 	/* No need to invalidate - it was non-present before */
@@ -3979,21 +3965,6 @@ static vm_fault_t __do_fault(struct vm_fault *vmf)
 		vmf->prealloc_pte = pte_alloc_one(vma->vm_mm);
 		if (!vmf->prealloc_pte)
 			return VM_FAULT_OOM;
-#ifdef full_map_print
-		pr_info("[%d] (__do_fault) vpn: %lx, page_to_pfn(vmf->page): %lx,   faulting addr: %lx\n", 
-				current->pid, vmf->address >> PAGE_SHIFT, page_to_pfn(vmf->page), vmf->address);
-		pr_info("[%d] (__do_fault) prealloc_pte: 0x%lx (ptr: %p)\n", current->pid, vmf->prealloc_pte, vmf->prealloc_pte);
-		pr_info("[%d] (__do_fault) 0x%lx 0x%lx 0x%lx 0x%lx (pte-pfn: %p), cr2: 0x%lx (masked cr2: 0x%lx)\n", 
-				current->pid,
-				vmf->address, 
-				(u64)page_to_phys(vmf->prealloc_pte),
-				vmf->address >> PAGE_SHIFT,
-				(u64)page_to_pfn(vmf->prealloc_pte),
-				vmf->prealloc_pte - page_to_pfn(vmf->prealloc_pte),
-				read_cr2(),
-				read_cr2() & PAGE_MASK
-				);
-#endif
 	}
 	/* minjae */
 #if 0
@@ -4189,24 +4160,24 @@ void do_set_pte(struct vm_fault *vmf, struct page *page, unsigned long addr)
 		page_add_file_rmap(page, false);
 	}
 #ifdef MJ_USER_PFN_PRINT
-	if (target_pid == current->pid) {
-		//len = snprintf((char*)mj_msg, 64, "{%d d %lx %llx}\n", current->pid, addr >> PAGE_SHIFT, 
-				//(((u64)entry.pte & (~((1ul<<PAGE_SHIFT)-1))) & ((1ul<<63)-1)) >> PAGE_SHIFT);
-		ktime_get_ts64(&ts);
-		if (vpmap_elem_cnt < VPMAP_ELEM_LIMIT) {
-			vpmap_buf[vpmap_elem_cnt].ftype = 'd';
-			vpmap_buf[vpmap_elem_cnt].pid = target_pid;
-			vpmap_buf[vpmap_elem_cnt].vpn = addr >> PAGE_SHIFT;
-			vpmap_buf[vpmap_elem_cnt].pfn = (((u64)entry.pte & (~((1ul<<PAGE_SHIFT)-1))) & ((1ul<<63)-1)) >> PAGE_SHIFT;
-			vpmap_buf[vpmap_elem_cnt].tv_sec = ts.tv_sec;
-			vpmap_buf[vpmap_elem_cnt].tv_nsec = ts.tv_nsec;
-			vpmap_elem_cnt++;
-			//pr_info("in memory.c:do_set_pte(), call vpmap_write()\n");
-			//vpmap_write((current->vpmap_seq), mj_msg, len, 0);
-		}
-
-	}
-#endif
+    pid_t curr_pid = current->pid;
+    int i;
+    for (i=0; i<target_count; i++) {
+        if (curr_pid == target_pid[i]) {
+            ktime_get_ts64(&ts);
+            if (vpmap_elem_cnt < VPMAP_ELEM_LIMIT) {
+                vpmap_buf[vpmap_elem_cnt].ftype = 'd'; 
+                vpmap_buf[vpmap_elem_cnt].pid = target_pid[0];
+                vpmap_buf[vpmap_elem_cnt].vpn = addr >> PAGE_SHIFT;
+                vpmap_buf[vpmap_elem_cnt].pfn = (((u64)entry.pte & (~((1ul<<PAGE_SHIFT)-1))) & ((1ul<<63)-1)) >> PAGE_SHIFT;
+                vpmap_buf[vpmap_elem_cnt].tv_sec = ts.tv_sec;
+                vpmap_buf[vpmap_elem_cnt].tv_nsec = ts.tv_nsec;
+                vpmap_elem_cnt++;
+            }
+            break;
+        }
+    }    
+#endif // ! MJ_USER_PFN_PRINT
 	set_pte_at(vma->vm_mm, addr, vmf->pte, entry);
 }
 
@@ -4375,21 +4346,6 @@ static vm_fault_t do_fault_around(struct vm_fault *vmf)
 		vmf->prealloc_pte = pte_alloc_one(vmf->vma->vm_mm); // maybe here? or all pte_alloc_one() ?
 		if (!vmf->prealloc_pte)
 			return VM_FAULT_OOM;
-#ifdef full_map_print
-		pr_info("[%d] (around) prealloc_pte: 0x%lx (ptr: %p)\n", current->pid, vmf->prealloc_pte, vmf->prealloc_pte);
-		pr_info("[%d] (around) vpn: %lx, page_to_pfn(vmf->page): %lx,  faulting addr: %lx\n",
-				current->pid, vmf->address >> PAGE_SHIFT, page_to_pfn(vmf->page), vmf->address);
-		pr_info("[%d] (around) 0x%lx 0x%lx 0x%lx 0x%lx (pte-pfn: %p), cr2: 0x%lx (masked cr2: 0x%lx)\n", 
-				current->pid,
-				vmf->address, 
-				(u64)page_to_phys(vmf->prealloc_pte),
-				vmf->address >> PAGE_SHIFT,
-				(u64)page_to_pfn(vmf->prealloc_pte),
-				vmf->prealloc_pte - page_to_pfn(vmf->prealloc_pte),
-				read_cr2(),
-				read_cr2() & PAGE_MASK
-			   );
-#endif
 	}
 	/* minjae */
 #if 0

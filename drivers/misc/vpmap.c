@@ -28,6 +28,8 @@ static int vpmap_dump_cnt;
 
 struct vpmap_elem *vpmap_buf;
 int vpmap_elem_cnt;
+
+#define NUM_VPMAP_ELEM  (32*M)
  
 static int add_data(int a, int b)
 {
@@ -177,7 +179,7 @@ ssize_t vpmap_write(struct file *seq, const char *msg, size_t len, loff_t *off) 
 		printk(KERN_ERR "copy from user error");
 		return -EFAULT;
 	}
-	memset(vpmap_buf, 0, sizeof(vpmap_elem) * 32*M);
+	memset(vpmap_buf, 0, sizeof(vpmap_elem) * NUM_VPMAP_ELEM);
 	memcpy(vpmap_buf, buf, len);
 	vpmap_elem_cnt = 0;
 	return len;
@@ -281,7 +283,7 @@ int proc_init(void)
 	vpmap_dump_cnt = 1;
 	*/
 	// TODO: use kmalloc
-	if ((vpmap_buf = (vpmap_elem*)kvmalloc(32*M * sizeof(struct vpmap_elem), GFP_KERNEL)) == NULL) {
+	if ((vpmap_buf = (vpmap_elem*)kvmalloc(NUM_VPMAP_ELEM * sizeof(struct vpmap_elem), GFP_KERNEL)) == NULL) {
 		printk(KERN_ERR "Unable to kvmalloc vpmap_buf\n");
 		return -1;
 	}
